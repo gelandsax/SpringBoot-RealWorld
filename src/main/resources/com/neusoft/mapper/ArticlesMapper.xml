@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC ".//mybaits.org/DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.neusoft.mapper.ArticlesMapper">
+    <select id="getTagsByArticleSlug"
+            resultType="java.lang.String"> select tags.name from articles
+        join article_tags on articles.id = article_tags.article_id
+        join tags on tags.id = article_tags.tag_id
+        where slug = #{slug}
+    </select>
+
+    <select id="getFavoritesCountBySlug" resultType="java.lang.Integer">
+        select count(1) from articles join favorites on articles.id = favorites.article_id where slug = #{slug}
+    </select>
+    <sql id="get_articles_sql">
+        from articles
+        join users on users.id = articles.author_id
+        join (select articles.id, array_agg(tags.name) as tag_arr from articles
+        left join article_tags on articles.id = article_tags.article_id
+        left join tags on tags.id = article_tags.tag_id
+        GROUP BY articles.id) tmptab on articles.id = tmptab.id
+        left join (select article_id as id,count(1) as favoritesCount from favorites group by article_id) favcnt on articles.id= favcnt.id
+        <where>
+            <if test="author != null">
+                and username = #{author}
+            </if>
+            <if test="tag != null">
+                and #{tag} = any (tag_arr)
+            </if>
+        </where>
+    </sql>
+    <resultMap id="ArticleInfo" type="com.neusoft.vo.Article">
+        <result property="slug" column="slug"></result>
+        <result property="title" column="title"></result>
+        <result property="description" column="description"></result>
+        <result property="createdAt" column="created_at"></result>
+        <result property="updatedAt" column="updated_at"></result>
+        <result property="tag_arr" column="tag_arr" typeHandler="org.apache.ibatis.type.ArrayTypeHandler"></result>
+        <result property="favoritesCount" column="favoritesCount"></result>
+        <association property="author" javaType="com.neusoft.vo.Author">
+            <result property="username" column="username"></result>
+            <result property="bio" column="bio"></result>
+            <result property="image" column="image"></result>
+        </association>
+    </resultMap>
+
+    <select id="getArticles" resultMap="ArticleInfo">
+        select slug, title, description, articles.created_at, articles.updated_at,users.username,users.bio,users.image,tag_arr,COALESCE(favcnt.favoritesCount, 0) AS favoritesCount
+        <include refid="get_articles_sql"></include>
+        offset #{offset} limit #{limit}
+    </select>
+
+    <select id="getArticlesCount" resultType="java.lang.Integer" parameterType="com.neusoft.dto.ArticleQueryCondition">
+        select count(1)
+        <include refid="get_articles_sql"></include>
+    </select>
+</mapper>
