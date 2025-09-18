@@ -4,6 +4,7 @@ import com.neusoft.exception.AuthFailException;
 import com.neusoft.mapper.UsersMapper;
 import com.neusoft.model.Users;
 import com.neusoft.utils.JwtService;
+import com.neusoft.utils.UserUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
@@ -29,10 +30,7 @@ public class AuthInterceptor implements HandlerInterceptor {
                              HttpServletResponse response, Object handler) throws Exception {
         String url = request.getRequestURI();
         String method = request.getMethod();
-        if(method.equalsIgnoreCase("GET")
-                && url.startsWith("/api/articles")){
-            return true;
-        }
+
         String token = request.getHeader("Authorization");
         if(token != null){
             token = token.replace("Token ","");
@@ -43,6 +41,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
                 if(users != null){
                     //将userid保存到一个全局位置，在其他任何类中都可以访问到。
+                    UserUtils.setLoginUser(users);
                     System.out.println(users.toString());
                     return true;
                 }
@@ -59,13 +58,17 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         else
         {
+            if(method.equalsIgnoreCase("GET")
+                    && url.startsWith("/api/articles")){
+                return true;
+            }
             AuthFail();
             return false;
         }
     }
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable ModelAndView modelAndView) throws Exception {
-
+        UserUtils.removeUser();
     }
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable Exception ex) throws Exception {

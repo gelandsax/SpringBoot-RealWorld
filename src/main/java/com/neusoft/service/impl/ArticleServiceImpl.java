@@ -3,15 +3,10 @@ package com.neusoft.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.neusoft.dto.ArticleQueryCondition;
 import com.neusoft.dto.NewArticle;
-import com.neusoft.mapper.ArticleTagsMapper;
-import com.neusoft.mapper.ArticlesMapper;
-import com.neusoft.mapper.TagsMapper;
-import com.neusoft.mapper.UsersMapper;
-import com.neusoft.model.ArticleTags;
-import com.neusoft.model.Articles;
-import com.neusoft.model.Tags;
-import com.neusoft.model.Users;
+import com.neusoft.mapper.*;
+import com.neusoft.model.*;
 import com.neusoft.service.IArticleService;
+import com.neusoft.utils.UserUtils;
 import com.neusoft.vo.Article;
 import com.neusoft.vo.Author;
 import org.springframework.stereotype.Service;
@@ -34,6 +29,10 @@ public class ArticleServiceImpl implements IArticleService {
     ArticleTagsMapper articleTagsMapper;
     @Resource
     UsersMapper usersMapper;
+    @Resource
+    FavoritesMapper favoritesMapper;
+    @Resource
+    FollowsMapper followsMapper;
     @Override
     public Article createArticle(NewArticle newarticle) {
         Articles article = new Articles();
@@ -42,7 +41,9 @@ public class ArticleServiceImpl implements IArticleService {
         UUID uuid = UUID.randomUUID();
         article.setSlug(uuid.toString());
         article.setBody(newarticle.getBody());
-        article.setAuthorId(1);
+//        article.setAuthorId(1);
+        Users loginUser = UserUtils.getLoginUser();
+        article.setAuthorId(loginUser.getId());
         articlesMapper.insert(article);
 
         ProcessTags(newarticle, article);
@@ -51,8 +52,16 @@ public class ArticleServiceImpl implements IArticleService {
         author.setUsername(user.getUsername());
         author.setBio(user.getBio());
         author.setImage(user.getImage());
-        author.setFollowing(false);
+//        author.setFollowing(false);
+        QueryWrapper<Follows> queryFollowsWrapper = new QueryWrapper<>();
+        queryFollowsWrapper.eq("follower_id", loginUser.getId()).eq("followee_id", user.getId());
+        Integer followsCount = followsMapper.selectCount(queryFollowsWrapper);
+        author.setFollowing(followsCount > 0);
 
+        QueryWrapper<Favorites> queryFavoritesWrapper2 = new QueryWrapper<>();
+        queryFavoritesWrapper2.eq("user_id", loginUser.getId())
+                .eq("article_id", article.getId());
+        Integer count = favoritesMapper.selectCount(queryFavoritesWrapper2);
 
         Article newArticle = new Article();
         newArticle.setTitle(article.getTitle());
@@ -66,13 +75,20 @@ public class ArticleServiceImpl implements IArticleService {
         newArticle.setUpdatedAt(dbarticle.getUpdatedAt());
 
         newArticle.setTagList(newarticle.getTagList());
-        newArticle.setFavorited(false);
+//        newArticle.setFavorited(false);
+        if(count > 0){
+            newArticle.setFavorited(true);
+        }
+        else{
+            newArticle.setFavorited(false);
+        }
         int favoritesCount = articlesMapper.getFavoritesCountBySlug(article.getSlug());
         newArticle.setFavoritesCount(favoritesCount);
         return newArticle;
     }
     @Override
     public Article getArticleBySlug(String slug) {
+        Users loginUser = UserUtils.getLoginUser();
         QueryWrapper<Articles> qw = new QueryWrapper<>();
         qw.eq("slug", slug);
         Articles articles = articlesMapper.selectOne(qw);
@@ -87,14 +103,27 @@ public class ArticleServiceImpl implements IArticleService {
             article.setUpdatedAt(articles.getUpdatedAt());
             List<String> tags = articlesMapper.getTagsByArticleSlug(slug);
             article.setTagList(tags);
-            article.setFavorited(false);
-
+//            article.setFavorited(false);
+            QueryWrapper<Favorites> queryFavoritesWrapper2 = new QueryWrapper<>();
+            queryFavoritesWrapper2.eq("user_id", loginUser.getId())
+                    .eq("article_id", articles.getId());
+            Integer count = favoritesMapper.selectCount(queryFavoritesWrapper2);
+            if(count > 0){
+                article.setFavorited(true);
+            }
+            else{
+                article.setFavorited(false);
+            }
             Author author = new Author();
             Users user=usersMapper.selectById(articles.getAuthorId());
             author.setUsername(user.getUsername());
             author.setBio(user.getBio());
             author.setImage(user.getImage());
-            author.setFollowing(false);
+//            author.setFollowing(false);
+            QueryWrapper<Follows> queryFollowsWrapper = new QueryWrapper<>();
+            queryFollowsWrapper.eq("follower_id", loginUser.getId()).eq("followee_id", user.getId());
+            Integer followsCount = followsMapper.selectCount(queryFollowsWrapper);
+            author.setFollowing(followsCount > 0);
             article.setAuthor(author);
 
             int favoritesCount = articlesMapper.getFavoritesCountBySlug(slug);
@@ -107,6 +136,7 @@ public class ArticleServiceImpl implements IArticleService {
     }
     @Override
     public Article updateArticle(String slug, NewArticle updateArticle) {
+        Users loginUser = UserUtils.getLoginUser();
         QueryWrapper<Articles> qw = new QueryWrapper<>();
         qw.eq("slug", slug);
         Articles article = articlesMapper.selectOne(qw);
@@ -128,7 +158,10 @@ public class ArticleServiceImpl implements IArticleService {
         author.setUsername(user.getUsername());
         author.setBio(user.getBio());
         author.setImage(user.getImage());
-        author.setFollowing(false);
+        QueryWrapper<Follows> queryFollowsWrapper = new QueryWrapper<>();
+        queryFollowsWrapper.eq("follower_id", loginUser.getId()).eq("followee_id", user.getId());
+        Integer followsCount = followsMapper.selectCount(queryFollowsWrapper);
+        author.setFollowing(followsCount > 0);
 
         Article newArticle = new Article();
         newArticle.setTitle(updateArticle.getTitle());
@@ -138,7 +171,17 @@ public class ArticleServiceImpl implements IArticleService {
         newArticle.setCreatedAt(article.getCreatedAt());
         newArticle.setUpdatedAt(article.getUpdatedAt());
         newArticle.setAuthor(author);
-        newArticle.setFavorited(false);
+//        newArticle.setFavorited(false);
+        QueryWrapper<Favorites> queryFavoritesWrapper2 = new QueryWrapper<>();
+        queryFavoritesWrapper2.eq("user_id", loginUser.getId())
+                .eq("article_id", article.getId());
+        Integer count = favoritesMapper.selectCount(queryFavoritesWrapper2);
+        if(count > 0){
+            newArticle.setFavorited(true);
+        }
+        else{
+            newArticle.setFavorited(false);
+        }
         newArticle.setFavoritesCount(articlesMapper.getFavoritesCountBySlug(slug));
         List<String> tags = articlesMapper.getTagsByArticleSlug(slug);
         newArticle.setTagList(tags);
@@ -149,6 +192,13 @@ public class ArticleServiceImpl implements IArticleService {
 
     @Override
     public List<Article> getArticles(ArticleQueryCondition articleQueryCondition) {
+        Users loginUser = UserUtils.getLoginUser();
+        if (loginUser == null) {
+            articleQueryCondition.setLogin_userId(0);
+        }
+        else{
+            articleQueryCondition.setLogin_userId(loginUser.getId());
+        }
         List<Article> articles = articlesMapper.getArticles(articleQueryCondition);
         for(Article article : articles){
             List<String> tagList = new ArrayList<>();
@@ -161,6 +211,13 @@ public class ArticleServiceImpl implements IArticleService {
     }
     @Override
     public int getArticlesCount(ArticleQueryCondition articleQueryCondition) {
+        Users loginUser = UserUtils.getLoginUser();
+        if (loginUser == null) {
+            articleQueryCondition.setLogin_userId(0);
+        }
+        else{
+            articleQueryCondition.setLogin_userId(loginUser.getId());
+        }
         return articlesMapper.getArticlesCount(articleQueryCondition);
     }
     public void ProcessTags(NewArticle updateArticle, Articles article) {

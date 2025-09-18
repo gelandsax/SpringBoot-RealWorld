@@ -6,6 +6,15 @@ public class ArticleQueryCondition {
     private String favorited;
     private Integer limit;
     private Integer offset;
+    private Integer login_userId;
+
+    public Integer getLogin_userId() {
+        return login_userId;
+    }
+
+    public void setLogin_userId(Integer login_userId) {
+        this.login_userId = login_userId;
+    }
 
     public String getAuthor() {
         return author;
