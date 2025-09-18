@@ -1,5 +1,6 @@
 package com.neusoft.error_handler;
 
+import com.neusoft.exception.AuthFailException;
 import com.neusoft.exception.UserExistException;
 import com.neusoft.response.ApiResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -16,5 +17,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ApiResponse<String> handldError(Exception exception){
         return ApiResponse.error(500, exception.getMessage());
+    }
+    @ExceptionHandler(AuthFailException.class)
+    public ApiResponse<String> handldAuthFailException(AuthFailException exception){
+        return ApiResponse.error(401, exception.getMessage());
     }
 }

@@ -1,5 +1,10 @@
 package com.neusoft.interceptor;
 
+import com.neusoft.exception.AuthFailException;
+import com.neusoft.mapper.UsersMapper;
+import com.neusoft.model.Users;
+import com.neusoft.utils.JwtService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -10,11 +15,53 @@ import javax.servlet.http.HttpServletResponse;
 
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
+    @Autowired
+    JwtService jwtService;
+
+    @Autowired
+    UsersMapper usersMapper;
+
+    private void AuthFail(){
+        throw new AuthFailException("认证失败");
+    }
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    public boolean preHandle(HttpServletRequest request,
+                             HttpServletResponse response, Object handler) throws Exception {
+        String url = request.getRequestURI();
+        String method = request.getMethod();
+        if(method.equalsIgnoreCase("GET")
+                && url.startsWith("/api/articles")){
+            return true;
+        }
         String token = request.getHeader("Authorization");
-        System.out.println(token);
-        return true;
+        if(token != null){
+            token = token.replace("Token ","");
+            if(jwtService.validateToken(token)){
+                String userId = jwtService.getSub(token);
+
+                Users users = usersMapper.selectById(Integer.parseInt(userId));
+
+                if(users != null){
+                    //将userid保存到一个全局位置，在其他任何类中都可以访问到。
+                    System.out.println(users.toString());
+                    return true;
+                }
+                else{
+                    AuthFail();
+                    return false;
+                }
+            }
+            else
+            {
+                AuthFail();
+                return false;
+            }
+        }
+        else
+        {
+            AuthFail();
+            return false;
+        }
     }
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable ModelAndView modelAndView) throws Exception {

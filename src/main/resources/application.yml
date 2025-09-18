@@ -18,3 +18,8 @@ application:
     jwt:
       expiration: 3000000
       secret-key: XNGpES2W4Miuldtn8gFIkfyfgKXDv0m7OIPDNE9BdhpUWd0c755zkr0gR4NgJWuB
+  white-list:
+    pass_url:
+      - /api/tags
+      - /api/users/login
+      - /api/users
