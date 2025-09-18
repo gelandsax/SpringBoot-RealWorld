@@ -19,6 +19,8 @@
         left join article_tags on articles.id = article_tags.article_id
         left join tags on tags.id = article_tags.tag_id
         GROUP BY articles.id) tmptab on articles.id = tmptab.id
+        left join (select article_id, count(1) as cnt from favorites
+        GROUP BY article_id) as tmptab2 on tmptab2.article_id = articles.id
         left join (select article_id FROM favorites
         where user_id = #{login_userId}) as user_favor_tab on articles.id = user_favor_tab.article_id
         left join (select followee_id from follows
@@ -39,8 +41,8 @@
         <result property="createdAt" column="created_at"></result>
         <result property="updatedAt" column="updated_at"></result>
         <result property="favorited" column="favorited"></result>
-        <result property="tag_arr" column="tag_arr" typeHandler="org.apache.ibatis.type.ArrayTypeHandler"></result>
         <result property="favoritesCount" column="favorate_count"></result>
+        <result property="tag_arr" column="tag_arr" typeHandler="org.apache.ibatis.type.ArrayTypeHandler"></result>
         <association property="author" javaType="com.neusoft.vo.Author">
             <result property="username" column="username"></result>
             <result property="bio" column="bio"></result>
@@ -50,8 +52,9 @@
     </resultMap>
 
     <select id="getArticles" resultMap="ArticleInfo">
-        select slug, title, description, articles.created_at, articles.updated_at,users.username,users.bio,users.image,tag_arr,
-        COALESCE(tmptab2.cnt,0) as favorate_count
+        select slug, title, description, articles.created_at, articles.updated_at
+        ,users.username,users.bio,users.image, tmptab.tag_arr
+        , COALESCE(tmptab2.cnt,0) as favorate_count
         ,case when user_favor_tab.article_id is null then false else true end as favorited
         , case when user_follow_tab.followee_id is null then false else true end as following
         <include refid="get_articles_sql"></include>
@@ -62,4 +65,43 @@
         select count(1)
         <include refid="get_articles_sql"></include>
     </select>
+
+    <sql id="get_feedArticles_sql">
+        from articles
+        join users on users.id = articles.author_id
+        join (select articles.id, array_agg(tags.name) as tag_arr from articles
+        left join article_tags on articles.id = article_tags.article_id
+        left join tags on tags.id = article_tags.tag_id
+        GROUP BY articles.id) tmptab on articles.id = tmptab.id
+        left join (select article_id, count(1) as cnt from favorites
+        GROUP BY article_id) as tmptab2 on tmptab2.article_id = articles.id
+        left join (select article_id FROM favorites
+        where user_id = #{login_userId}) as user_favor_tab on articles.id = user_favor_tab.article_id
+        join (select followee_id from follows
+        WHERE follower_id = #{login_userId}) as user_follow_tab on articles.author_id = user_follow_tab.followee_id
+        <where>
+            <if test="author != null">
+                and username = #{author}
+            </if>
+            <if test="tag != null">
+                and #{tag} = any (tag_arr)
+            </if>
+        </where>
+    </sql>
+
+    <select id="feedArticles" resultMap="ArticleInfo">
+        select slug, title, description, articles.created_at, articles.updated_at
+        ,users.username,users.bio,users.image, tmptab.tag_arr
+        , COALESCE(tmptab2.cnt,0) as favorate_count
+        ,case when user_favor_tab.article_id is null then false else true end as favorited
+        , case when user_follow_tab.followee_id is null then false else true end as following
+        <include refid="get_feedArticles_sql"></include>
+        offset #{offset} limit #{limit}
+    </select>
+
+    <select id="getFeedArticlesCount" resultType="java.lang.Integer" parameterType="com.neusoft.dto.ArticleQueryCondition">
+        select count(1)
+        <include refid="get_feedArticles_sql"></include>
+    </select>
+
 </mapper>

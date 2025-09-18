@@ -12,5 +12,8 @@ public interface ArticlesMapper extends BaseMapper<Articles> {
     List<String> getTagsByArticleSlug(@Param("slug") String slug);
     int getFavoritesCountBySlug(@Param("slug") String slug);
     List<Article> getArticles(ArticleQueryCondition articleQueryCondition);
+    List<Article> feedArticles(ArticleQueryCondition articleQueryCondition);
     int getArticlesCount(ArticleQueryCondition articleQueryCondition);
+    int getFeedArticlesCount(ArticleQueryCondition articleQueryCondition);
+
 }

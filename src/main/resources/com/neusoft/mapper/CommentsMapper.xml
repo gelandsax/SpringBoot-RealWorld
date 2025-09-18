@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC ".//mybaits.org/DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.neusoft.mapper.CommentsMapper">
+    <resultMap id="ArticleInfo" type="com.neusoft.vo.Comment">
+        <result property="id" column="id"/>
+        <result property="body" column="body"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+
+        <association property="author" javaType="com.neusoft.vo.Author">
+            <result property="username" column="username"/>
+            <result property="bio" column="bio"/>
+            <result property="following" column="following"/>
+            <result property="image" column="image"/>
+        </association>
+    </resultMap>
+    <select id="getCommentsByArticleId" resultMap="ArticleInfo" parameterType="map">
+        SELECT c.id,c.body,c.created_at,c.updated_at,u.username,u.image,u.bio,CASE WHEN f.follower_id IS NULL THEN false ELSE true END as following
+        FROM comments c JOIN users u ON c.author_id = u.id
+            LEFT JOIN follows f ON f.followee_id = u.id AND f.follower_id = #{loginUserId}
+        WHERE c.article_id = #{articleId}
+        ORDER BY c.created_at DESC
+    </select>
+
+</mapper>

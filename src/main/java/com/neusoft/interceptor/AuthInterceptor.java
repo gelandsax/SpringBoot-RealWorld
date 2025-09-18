@@ -62,6 +62,9 @@ public class AuthInterceptor implements HandlerInterceptor {
                     && url.startsWith("/api/articles")){
                 return true;
             }
+            if(method.equalsIgnoreCase("/api/articles/feed")){
+                return false;
+            }
             AuthFail();
             return false;
         }

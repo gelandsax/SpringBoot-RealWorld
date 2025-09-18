@@ -220,6 +220,128 @@ public class ArticleServiceImpl implements IArticleService {
         }
         return articlesMapper.getArticlesCount(articleQueryCondition);
     }
+    @Override
+    public void deleteArticle(String slug) {
+        QueryWrapper<Articles> qw = new QueryWrapper<>();
+        qw.eq("slug", slug);
+        Articles article = articlesMapper.selectOne(qw);
+        if(article != null){
+            articlesMapper.deleteById(article.getId());
+        }
+        else{
+            throw new RuntimeException("文章不存在");
+        }
+    }
+    @Override
+    public List<Article> feedArticles(ArticleQueryCondition articleQueryCondition) {
+        List<Article> feedArticles = articlesMapper.feedArticles(articleQueryCondition);
+        for(Article article : feedArticles){
+            List<String> tagList = new ArrayList<>();
+            if(article.getTag_arr()[0] != null){
+                tagList = Arrays.asList(article.getTag_arr());
+            }
+            article.setTagList(tagList);
+        }
+        return feedArticles;
+    }
+    @Override
+    public int getFeedArticlesCount(ArticleQueryCondition articleQueryCondition) {
+        return articlesMapper.getFeedArticlesCount(articleQueryCondition);
+    }
+    @Override
+    public Article favoriteArticle(int articleId,int UserId) {
+        QueryWrapper<Favorites> wrapper = new QueryWrapper<>();
+        wrapper.eq("article_id", articleId).eq("user_id", UserId);
+        Favorites exist = favoritesMapper.selectOne(wrapper);
+        if (exist == null) {
+            Favorites favorites = new Favorites();
+            favorites.setArticleId(articleId);
+            favorites.setUserId(UserId);
+            favoritesMapper.insert(favorites);
+        }
+
+        Articles articles = articlesMapper.selectById(articleId);
+        Article article = new Article();
+        article.setTitle(articles.getTitle());
+        article.setDescription(articles.getDescription());
+        article.setBody(articles.getBody());
+        article.setSlug(articles.getSlug());
+        article.setCreatedAt(articles.getCreatedAt());
+        article.setUpdatedAt(articles.getUpdatedAt());
+        article.setFavorited(true);
+        article.setFavoritesCount(articlesMapper.getFavoritesCountBySlug(articles.getSlug()));
+        List<String> tags = articlesMapper.getTagsByArticleSlug(article.getSlug());
+        article.setTagList(tags);
+        Author author = new Author();
+        int authorID = articles.getAuthorId();
+
+        Users user = usersMapper.selectById(authorID);
+        author.setBio(user.getBio());
+        author.setUsername(user.getUsername());
+        author.setImage(user.getImage());
+        Follows follows = new Follows();
+        QueryWrapper<Follows> followsQueryWrapper = new QueryWrapper<>();
+        followsQueryWrapper.eq("followee_id", authorID).eq("follower_id", UserId);
+        follows = followsMapper.selectOne(followsQueryWrapper);
+        if(follows != null){
+            author.setFollowing(true);
+        }
+        else{
+            author.setFollowing(false);
+        }
+        article.setAuthor(author);
+        return article;
+    }
+
+    @Override
+    public Article UnFavoriteArticle(int articleId, int userId) {
+        // 1. 删除用户的喜欢记录
+        QueryWrapper<Favorites> wrapper = new QueryWrapper<>();
+        wrapper.eq("article_id", articleId)
+                .eq("user_id", userId);
+        favoritesMapper.delete(wrapper);
+
+        // 2. 查询文章信息
+        Articles articles = articlesMapper.selectById(articleId);
+        if (articles == null) {
+            return null; // 或抛异常，根据项目需求
+        }
+
+        // 3. 构建返回的 Article 对象
+        Article article = new Article();
+        article.setTitle(articles.getTitle());
+        article.setDescription(articles.getDescription());
+        article.setBody(articles.getBody());
+        article.setSlug(articles.getSlug());
+        article.setCreatedAt(articles.getCreatedAt());
+        article.setUpdatedAt(articles.getUpdatedAt());
+        List<String> tags = articlesMapper.getTagsByArticleSlug(article.getSlug());
+        article.setTagList(tags);
+
+        // 4. 更新收藏状态
+        article.setFavorited(false);
+        article.setFavoritesCount(articlesMapper.getFavoritesCountBySlug(articles.getSlug()));
+
+        // 5. 构建作者信息
+        Author author = new Author();
+        int authorId = articles.getAuthorId();
+        Users user = usersMapper.selectById(authorId);
+        author.setBio(user.getBio());
+        author.setUsername(user.getUsername());
+        author.setImage(user.getImage());
+
+        // 6. 查询当前登录用户是否关注作者
+        QueryWrapper<Follows> followsQueryWrapper = new QueryWrapper<>();
+        followsQueryWrapper.eq("followee_id", authorId)
+                .eq("follower_id", userId);
+        Follows follows = followsMapper.selectOne(followsQueryWrapper);
+        author.setFollowing(follows != null);
+
+        article.setAuthor(author);
+
+        return article;
+    }
+
     public void ProcessTags(NewArticle updateArticle, Articles article) {
         for(String tag: updateArticle.getTagList()){
             QueryWrapper<Tags> qw1 = new QueryWrapper<>();
